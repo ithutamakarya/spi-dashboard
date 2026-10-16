@@ -1,4 +1,4 @@
-let playlist = [];
+let playlist = null;
 let currentIndex = -1;
 let currentConfig = null;
 let slideTimeout = null;
@@ -72,9 +72,13 @@ function applyConfig(display) {
 
   // Media Fit
   const fitClass = display.mediaFit === 'cover' ? 'fit-cover' : '';
-  layer1.className = `image-layer ${fitClass} ${activeLayer === 1 ? 'active' : ''}`;
-  layer2.className = `image-layer ${fitClass} ${activeLayer === 2 ? 'active' : ''}`;
-  videoPlayer.className = `${fitClass} ${videoPlayer.classList.contains('hidden') ? 'hidden' : ''}`;
+  const isVideoPlaying = !videoPlayer.classList.contains('hidden');
+  const isStandby = !standbyScreen.classList.contains('hidden');
+  const shouldShowImage = !isVideoPlaying && !isStandby;
+
+  layer1.className = `image-layer ${fitClass} ${shouldShowImage && activeLayer === 1 ? 'active' : ''}`.trim();
+  layer2.className = `image-layer ${fitClass} ${shouldShowImage && activeLayer === 2 ? 'active' : ''}`.trim();
+  videoPlayer.className = `${fitClass} ${videoPlayer.classList.contains('hidden') ? 'hidden' : ''}`.trim();
   videoPlayer.muted = display.videoMuted !== false;
 }
 
@@ -100,6 +104,8 @@ async function fetchPlaylist() {
 
 function showStandby() {
   clearTimeout(slideTimeout);
+  currentIndex = -1;
+  videoPlayer.pause();
   standbyScreen.classList.remove('hidden');
   videoPlayer.classList.add('hidden');
   layer1.classList.remove('active');
@@ -111,7 +117,7 @@ function showStandby() {
 // 4. Playback Engine
 function playNext() {
   clearTimeout(slideTimeout);
-  if (playlist.length === 0) {
+  if (!playlist || playlist.length === 0) {
     showStandby();
     return;
   }
@@ -128,14 +134,13 @@ function playNext() {
 }
 
 function playImage(item) {
-  videoPlayer.pause();
-  videoPlayer.classList.add('hidden');
-
   const nextLayer = activeLayer === 1 ? layer2 : layer1;
   const currentLayer = activeLayer === 1 ? layer1 : layer2;
 
   const img = new Image();
   img.onload = () => {
+    videoPlayer.pause();
+    videoPlayer.classList.add('hidden');
     nextLayer.style.backgroundImage = `url("${item.url}")`;
     nextLayer.classList.add('active');
     currentLayer.classList.remove('active');
