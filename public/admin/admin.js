@@ -147,6 +147,16 @@ async function loadConfig() {
   }
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Save Display Settings
 displayForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -174,6 +184,9 @@ displayForm.addEventListener('submit', async (e) => {
     if (res.ok) {
       alert('Pengaturan tampilan berhasil disimpan!');
       document.getElementById('adminPin').value = '';
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert('Gagal menyimpan: ' + (data.error || res.statusText));
     }
   } catch (err) {
     alert('Gagal menyimpan: ' + err.message);
@@ -203,6 +216,9 @@ onedriveForm.addEventListener('submit', async (e) => {
     if (res.ok) {
       alert('Pengaturan OneDrive berhasil disimpan!');
       loadStatus();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert('Gagal menyimpan: ' + (data.error || res.statusText));
     }
   } catch (err) {
     alert('Gagal menyimpan: ' + err.message);
@@ -266,9 +282,11 @@ async function loadGallery() {
     }
 
     galleryGrid.innerHTML = items.map(item => {
+      const safeFilename = escapeHtml(item.filename);
+      const safeUrl = encodeURI(item.url || '');
       let previewHtml;
       if (item.type === 'image') {
-        previewHtml = `<img src="${item.url}" class="media-preview" alt="${item.filename}">`;
+        previewHtml = `<img src="${safeUrl}" class="media-preview" alt="${safeFilename}">`;
       } else {
         previewHtml = `<div class="media-preview">🎬</div>`;
       }
@@ -277,8 +295,8 @@ async function loadGallery() {
         <div class="media-card">
           ${previewHtml}
           <div class="media-info">
-            <strong>${item.filename}</strong><br>
-            <small>${item.type.toUpperCase()} • ${(item.size / 1024 / 1024).toFixed(2)} MB</small>
+            <strong>${safeFilename}</strong><br>
+            <small>${escapeHtml(item.type.toUpperCase())} • ${(item.size / 1024 / 1024).toFixed(2)} MB</small>
           </div>
         </div>
       `;
