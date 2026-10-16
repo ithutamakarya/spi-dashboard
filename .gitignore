@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Local Data and Cache
+data/
+media/
+*-test/
+
+# Superpowers scratch
+.superpowers/
+
+# OS / Logs
+*.log
+.DS_Store
+Thumbs.db
