@@ -187,4 +187,36 @@ describe('Express Server API', () => {
     expect(res.text).toContain('requestWakeLock');
     expect(res.text).toContain('fetchPlaylist');
   });
+
+  it('GET /admin/index.html mengembalikan halaman HTML admin', async () => {
+    const res = await request(app).get('/admin/index.html');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.text).toContain('Admin Dashboard - TV Kiosk');
+    expect(res.text).toContain('id="login-modal"');
+    expect(res.text).toContain('id="admin-app"');
+    expect(res.text).toContain('id="display-form"');
+    expect(res.text).toContain('id="onedrive-form"');
+    expect(res.text).toContain('id="gallery-grid"');
+  });
+
+  it('GET /admin/admin.css mengembalikan stylesheet admin', async () => {
+    const res = await request(app).get('/admin/admin.css');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/css/);
+    expect(res.text).toContain('.modal-overlay');
+    expect(res.text).toContain('.gallery-grid');
+    expect(res.text).toContain('.status-bar');
+  });
+
+  it('GET /admin/admin.js mengembalikan skrip admin', async () => {
+    const res = await request(app).get('/admin/admin.js');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/javascript/);
+    expect(res.text).toContain('kiosk_admin_token');
+    expect(res.text).toContain('loadStatus');
+    expect(res.text).toContain('loadConfig');
+    expect(res.text).toContain('loadGallery');
+  });
 });
+

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - TV Kiosk</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <!-- PIN Login Modal -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="modal-card">
+      <h2>🔐 Masuk Admin Kiosk</h2>
+      <p>Masukkan PIN untuk mengelola tampilan TV.</p>
+      <form id="login-form">
+        <input type="password" id="pin-input" placeholder="Masukkan PIN" maxlength="10" required autofocus>
+        <button type="submit" class="btn btn-primary">Masuk</button>
+      </form>
+      <div id="login-error" class="error-msg hidden"></div>
+    </div>
+  </div>
+
+  <!-- Main Admin Interface -->
+  <div id="admin-app" class="hidden">
+    <header class="navbar">
+      <div class="nav-brand">
+        <h1>📺 TV Kiosk Admin</h1>
+      </div>
+      <div class="nav-actions">
+        <a href="/kiosk" target="_blank" class="btn btn-outline">Lihat Layar TV ↗</a>
+        <button id="logout-btn" class="btn btn-secondary">Keluar</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Status Bar -->
+      <section class="card status-bar">
+        <div class="status-item">
+          <span class="label">Status Sync:</span>
+          <span id="stat-sync" class="badge">Memeriksa...</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Total Media:</span>
+          <span id="stat-media-count" class="val">0 berkas</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Sync Terakhir:</span>
+          <span id="stat-last-sync" class="val">-</span>
+        </div>
+        <div class="status-actions">
+          <button id="btn-sync-now" class="btn btn-sm btn-primary">⚡ Sync Sekarang</button>
+        </div>
+      </section>
+
+      <!-- Navigation Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="tab-display">🎨 Tampilan & Teks</button>
+        <button class="tab-btn" data-tab="tab-onedrive">☁️ Integrasi OneDrive</button>
+        <button class="tab-btn" data-tab="tab-gallery">🖼️ Daftar Media</button>
+      </div>
+
+      <!-- Tab 1: Display & Marquee -->
+      <section id="tab-display" class="tab-content active card">
+        <h3>Pengaturan Layar Kiosk TV</h3>
+        <form id="display-form">
+          <div class="form-group row">
+            <label class="toggle-label">
+              <input type="checkbox" id="showClock">
+              <span>Tampilkan Jam & Tanggal</span>
+            </label>
+          </div>
+
+          <div class="form-group row">
+            <label class="toggle-label">
+              <input type="checkbox" id="showMarquee">
+              <span>Tampilkan Running Text (Ticker Bawah)</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="marqueeText">Isi Teks Pengumuman (Running Text):</label>
+            <textarea id="marqueeText" rows="3" class="form-control" placeholder="Tuliskan teks berjalan di sini..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="marqueeSpeed">Kecepatan Teks Berjalan:</label>
+            <select id="marqueeSpeed" class="form-control">
+              <option value="slow">Lambat</option>
+              <option value="medium">Sedang (Default)</option>
+              <option value="fast">Cepat</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="imageDurationSeconds">Durasi Tampil Foto/Gambar (detik):</label>
+              <input type="number" id="imageDurationSeconds" class="form-control" min="3" max="300" value="10">
+            </div>
+
+            <div class="form-group col">
+              <label for="mediaFit">Ukuran Tampilan Media:</label>
+              <select id="mediaFit" class="form-control">
+                <option value="contain">Contain (Proporsional Asli + Background)</option>
+                <option value="cover">Cover (Penuh Layar TV)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group row">
+            <label class="toggle-label">
+              <input type="checkbox" id="videoMuted">
+              <span>Mute Audio Video (Direkomendasikan agar tidak berisik di lobi)</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="adminPin">Ganti PIN Admin:</label>
+            <input type="password" id="adminPin" class="form-control" placeholder="Biarkan kosong jika tidak diubah">
+          </div>
+
+          <button type="submit" class="btn btn-primary">Simpan Pengaturan Tampilan</button>
+        </form>
+      </section>
+
+      <!-- Tab 2: OneDrive Settings -->
+      <section id="tab-onedrive" class="tab-content card">
+        <h3>Pengaturan Microsoft Graph & OneDrive</h3>
+        <p class="subtitle">Kredensial Azure Entra ID dengan izin Application: <code>Files.Read.All</code></p>
+        <form id="onedrive-form">
+          <div class="form-group">
+            <label for="tenantId">Directory (Tenant) ID:</label>
+            <input type="text" id="tenantId" class="form-control" placeholder="Contoh: 8a7b6c5d-...">
+          </div>
+
+          <div class="form-group">
+            <label for="clientId">Application (Client) ID:</label>
+            <input type="text" id="clientId" class="form-control" placeholder="Contoh: 1b2c3d4e-...">
+          </div>
+
+          <div class="form-group">
+            <label for="clientSecret">Client Secret Value:</label>
+            <input type="password" id="clientSecret" class="form-control" placeholder="Masukkan rahasia aplikasi...">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="targetUserEmail">Email Akun M365 (Pemilik Folder):</label>
+              <input type="email" id="targetUserEmail" class="form-control" placeholder="misal: tv-signage@perusahaan.com">
+            </div>
+
+            <div class="form-group col">
+              <label for="targetFolderPath">Path Folder di OneDrive:</label>
+              <input type="text" id="targetFolderPath" class="form-control" placeholder="/SignageMedia" value="/SignageMedia">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="syncIntervalMinutes">Interval Sinkronisasi Otomatis (menit):</label>
+            <input type="number" id="syncIntervalMinutes" class="form-control" min="1" max="1440" value="10">
+          </div>
+
+          <div class="button-group">
+            <button type="submit" class="btn btn-primary">Simpan Pengaturan OneDrive</button>
+            <button type="button" id="btn-test-connection" class="btn btn-secondary">Uji Koneksi</button>
+          </div>
+          <div id="test-conn-result" class="result-box hidden"></div>
+        </form>
+      </section>
+
+      <!-- Tab 3: Media Gallery -->
+      <section id="tab-gallery" class="tab-content card">
+        <h3>Daftar Media Lokal di Mini PC</h3>
+        <p class="subtitle">Media yang saat ini tersimpan di folder <code>./media</code> dan aktif diputar.</p>
+        <div id="gallery-grid" class="gallery-grid">
+          <p>Memuat media...</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
