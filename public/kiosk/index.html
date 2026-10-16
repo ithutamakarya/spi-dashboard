@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TV Kiosk Display</title>
+  <link rel="stylesheet" href="/kiosk/kiosk.css">
+</head>
+<body>
+  <div id="kiosk-container">
+    <!-- Standby / No Media View -->
+    <div id="standby-screen" class="hidden">
+      <div class="standby-card">
+        <div class="pulse-icon">📺</div>
+        <h2>OneDrive TV Kiosk</h2>
+        <p id="standby-msg">Menunggu media dari OneDrive...</p>
+        <div class="admin-hint">
+          Buka Admin Dashboard di LAN: <span id="admin-url-hint">http://ip-minipc:3000/admin</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Media Player View -->
+    <div id="player-screen">
+      <div id="image-container-1" class="image-layer active"></div>
+      <div id="image-container-2" class="image-layer"></div>
+      <video id="video-player" playsinline preload="auto" class="hidden"></video>
+    </div>
+
+    <!-- Overlay UI -->
+    <div id="overlay-container">
+      <!-- Clock Widget -->
+      <div id="clock-widget" class="overlay-widget">
+        <div id="clock-time">00:00</div>
+        <div id="clock-date">Senin, 01 Januari 2026</div>
+      </div>
+
+      <!-- Bottom Running Text Marquee -->
+      <div id="marquee-widget" class="marquee-bar">
+        <div class="marquee-track">
+          <span id="marquee-text">Selamat Datang</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/kiosk/kiosk.js"></script>
+</body>
+</html>

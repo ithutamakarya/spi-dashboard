@@ -158,4 +158,33 @@ describe('Express Server API', () => {
     expect(res.status).toBe(200);
     expect(res.headers['accept-ranges']).toBe('bytes');
   });
+
+  it('GET /kiosk/index.html mengembalikan halaman HTML kiosk', async () => {
+    const res = await request(app).get('/kiosk/index.html');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.text).toContain('TV Kiosk Display');
+    expect(res.text).toContain('id="kiosk-container"');
+    expect(res.text).toContain('id="video-player"');
+    expect(res.text).toContain('id="clock-widget"');
+    expect(res.text).toContain('id="marquee-widget"');
+  });
+
+  it('GET /kiosk/kiosk.css mengembalikan stylesheet kiosk', async () => {
+    const res = await request(app).get('/kiosk/kiosk.css');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/css/);
+    expect(res.text).toContain('cursor: none');
+    expect(res.text).toContain('.image-layer');
+    expect(res.text).toContain('.marquee-bar');
+  });
+
+  it('GET /kiosk/kiosk.js mengembalikan skrip kiosk', async () => {
+    const res = await request(app).get('/kiosk/kiosk.js');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/javascript/);
+    expect(res.text).toContain('updateClock');
+    expect(res.text).toContain('requestWakeLock');
+    expect(res.text).toContain('fetchPlaylist');
+  });
 });
