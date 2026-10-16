@@ -269,4 +269,132 @@ describe('OneDriveSyncService', () => {
       vi.useRealTimers();
     }
   });
+
+  it('tidak melakukan pruning lokal jika ada error saat download (safeguard pruning)', async () => {
+    configMgr.saveConfig({
+      onedrive: {
+        tenantId: 'tenant-1',
+        clientId: 'client-1',
+        clientSecret: 'secret-1'
+      }
+    });
+
+    // File lokal yang masih berfungsi
+    fs.writeFileSync(path.join(TEST_MEDIA_DIR, 'cached-video.mp4'), 'working-video');
+
+    const remoteItems = [
+      {
+        name: 'new-video.mp4',
+        file: {},
+        size: 50,
+        '@microsoft.graph.downloadUrl': 'https://download/new-video.mp4'
+      }
+    ];
+
+    const mockApi = vi.fn().mockReturnValue({
+      get: vi.fn().mockResolvedValue({ value: remoteItems })
+    });
+    vi.spyOn(syncService, '_getGraphClient').mockReturnValue({ api: mockApi });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500
+    });
+
+    try {
+      const result = await syncService.sync();
+      expect(result.success).toBe(false);
+      expect(result.errors.length).toBe(1);
+
+      // cached-video.mp4 TIDAK boleh terhapus karena ada error download
+      expect(fs.existsSync(path.join(TEST_MEDIA_DIR, 'cached-video.mp4'))).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('mengunduh file jika ukuran sama namun remote timestamp lebih baru (delta sync)', async () => {
+    configMgr.saveConfig({
+      onedrive: {
+        tenantId: 'tenant-1',
+        clientId: 'client-1',
+        clientSecret: 'secret-1'
+      }
+    });
+
+    const localFilePath = path.join(TEST_MEDIA_DIR, 'update.jpg');
+    fs.writeFileSync(localFilePath, '1234');
+    // Set local mtime to 1 hour ago
+    const pastTime = new Date(Date.now() - 3600000);
+    fs.utimesSync(localFilePath, pastTime, pastTime);
+
+    // Remote file with same size (4) but newer lastModifiedDateTime (now)
+    const remoteItems = [
+      {
+        name: 'update.jpg',
+        file: {},
+        size: 4,
+        lastModifiedDateTime: new Date().toISOString(),
+        '@microsoft.graph.downloadUrl': 'https://download/update.jpg'
+      }
+    ];
+
+    const mockApi = vi.fn().mockReturnValue({
+      get: vi.fn().mockResolvedValue({ value: remoteItems })
+    });
+    vi.spyOn(syncService, '_getGraphClient').mockReturnValue({ api: mockApi });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('abcd'));
+
+    try {
+      const result = await syncService.sync();
+      expect(result.success).toBe(true);
+      expect(result.syncedFiles).toBe(1);
+      expect(fs.readFileSync(localFilePath, 'utf8')).toBe('abcd');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('menggunakan streaming download (Readable.fromWeb) dan sanitasi path.basename', async () => {
+    configMgr.saveConfig({
+      onedrive: {
+        tenantId: 'tenant-1',
+        clientId: 'client-1',
+        clientSecret: 'secret-1'
+      }
+    });
+
+    const remoteItems = [
+      {
+        name: '../../traversal.mp4',
+        file: {},
+        size: 15,
+        '@microsoft.graph.downloadUrl': 'https://download/stream.mp4'
+      }
+    ];
+
+    const mockApi = vi.fn().mockReturnValue({
+      get: vi.fn().mockResolvedValue({ value: remoteItems })
+    });
+    vi.spyOn(syncService, '_getGraphClient').mockReturnValue({ api: mockApi });
+
+    const originalFetch = globalThis.fetch;
+    // Native Response body is a WHATWG ReadableStream
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('streamed-binary'));
+
+    try {
+      const result = await syncService.sync();
+      expect(result.success).toBe(true);
+      expect(result.syncedFiles).toBe(1);
+
+      // File harus tersimpan aman di direktori media dengan basename 'traversal.mp4'
+      expect(fs.existsSync(path.join(TEST_MEDIA_DIR, 'traversal.mp4'))).toBe(true);
+      expect(fs.readFileSync(path.join(TEST_MEDIA_DIR, 'traversal.mp4'), 'utf8')).toBe('streamed-binary');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

@@ -50,16 +50,37 @@ describe('Express Server API', () => {
     expect(res.body.onedrive.clientSecret).toBeUndefined();
   });
 
-  it('POST /api/auth/login memvalidasi PIN dengan benar', async () => {
+  it('POST /api/auth/login memvalidasi PIN dengan benar dan mengembalikan dynamic token', async () => {
     const valid = await request(app).post('/api/auth/login').send({ pin: '1234' });
     expect(valid.status).toBe(200);
     expect(valid.body.success).toBe(true);
-    expect(valid.body.token).toBe('authenticated-admin-session');
+    expect(typeof valid.body.token).toBe('string');
+    expect(valid.body.token.length).toBeGreaterThan(10);
 
     const invalid = await request(app).post('/api/auth/login').send({ pin: 'wrong' });
     expect(invalid.status).toBe(401);
     expect(invalid.body.success).toBe(false);
     expect(invalid.body.error).toBeDefined();
+  });
+
+  it('POST /api/auth/logout menghapus token sesi aktif', async () => {
+    const loginRes = await request(app).post('/api/auth/login').send({ pin: '1234' });
+    const token = loginRes.body.token;
+
+    const authCheck = await request(app)
+      .get('/api/admin/config')
+      .set('Authorization', `Bearer ${token}`);
+    expect(authCheck.status).toBe(200);
+
+    const logoutRes = await request(app)
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${token}`);
+    expect(logoutRes.status).toBe(200);
+
+    const postLogoutCheck = await request(app)
+      .get('/api/admin/config')
+      .set('Authorization', `Bearer ${token}`);
+    expect(postLogoutCheck.status).toBe(401);
   });
 
   it('GET /api/playlist mengembalikan daftar array media', async () => {
@@ -79,9 +100,12 @@ describe('Express Server API', () => {
     expect(badToken.status).toBe(401);
     expect(badToken.body.error).toMatch(/Token tidak valid/i);
 
+    const loginRes = await request(app).post('/api/auth/login').send({ pin: '1234' });
+    const token = loginRes.body.token;
+
     const auth = await request(app)
       .get('/api/admin/config')
-      .set('Authorization', 'Bearer authenticated-admin-session');
+      .set('Authorization', `Bearer ${token}`);
     expect(auth.status).toBe(200);
     expect(auth.body.adminPin).toBe('1234');
   });
@@ -89,9 +113,12 @@ describe('Express Server API', () => {
   it('PUT /api/admin/config memperbarui konfigurasi dan memperbarui scheduled sync jika interval berubah', async () => {
     const spyStartSync = vi.spyOn(syncService, 'startScheduledSync').mockImplementation(() => {});
 
+    const loginRes = await request(app).post('/api/auth/login').send({ pin: '1234' });
+    const token = loginRes.body.token;
+
     const updateRes = await request(app)
       .put('/api/admin/config')
-      .set('Authorization', 'Bearer authenticated-admin-session')
+      .set('Authorization', `Bearer ${token}`)
       .send({
         display: { marqueeText: 'Halo Dunia' },
         onedrive: { syncIntervalMinutes: 15 }
@@ -109,9 +136,12 @@ describe('Express Server API', () => {
     const unauth = await request(app).post('/api/sync/trigger');
     expect(unauth.status).toBe(401);
 
+    const loginRes = await request(app).post('/api/auth/login').send({ pin: '1234' });
+    const token = loginRes.body.token;
+
     const res = await request(app)
       .post('/api/sync/trigger')
-      .set('Authorization', 'Bearer authenticated-admin-session');
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.syncedFiles).toBe(2);
@@ -126,9 +156,12 @@ describe('Express Server API', () => {
     const unauth = await request(app).post('/api/sync/test');
     expect(unauth.status).toBe(401);
 
+    const loginRes = await request(app).post('/api/auth/login').send({ pin: '1234' });
+    const token = loginRes.body.token;
+
     const res = await request(app)
       .post('/api/sync/test')
-      .set('Authorization', 'Bearer authenticated-admin-session');
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toContain('berhasil');

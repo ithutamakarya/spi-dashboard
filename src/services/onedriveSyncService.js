@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
 import { ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { defaultConfigManager } from '../config/configManager.js';
@@ -52,7 +54,7 @@ export class OneDriveSyncService {
   }
 
   _pruneLocalFiles(remoteItems) {
-    const remoteFileNames = new Set(remoteItems.map(item => item.name));
+    const remoteFileNames = new Set(remoteItems.map(item => path.basename(item.name)));
     const localFiles = fs.readdirSync(this.mediaService.mediaDir);
 
     for (const file of localFiles) {
@@ -92,26 +94,38 @@ export class OneDriveSyncService {
       const validMediaItems = items.filter(item => item.file && this.mediaService.isSupportedMedia(item.name));
 
       for (const item of validMediaItems) {
-        const localPath = path.join(this.mediaService.mediaDir, item.name);
-        const tempPath = path.join(this.mediaService.mediaDir, `${item.name}.tmp`);
+        const safeName = path.basename(item.name);
+        const localPath = path.join(this.mediaService.mediaDir, safeName);
+        const tempPath = path.join(this.mediaService.mediaDir, `${safeName}.tmp`);
 
         let needDownload = true;
         if (fs.existsSync(localPath)) {
           const stat = fs.statSync(localPath);
-          if (stat.size === item.size) {
+          const remoteTime = new Date(item.lastModifiedDateTime).getTime();
+          if (stat.size === item.size && (!item.lastModifiedDateTime || stat.mtimeMs >= remoteTime)) {
             needDownload = false;
           }
         }
 
         if (needDownload) {
           try {
-            console.log(`[Sync] Mengunduh: ${item.name} (${item.size} bytes)...`);
+            console.log(`[Sync] Mengunduh: ${safeName} (${item.size} bytes)...`);
             const downloadUrl = item['@microsoft.graph.downloadUrl'];
             const fileStream = await fetch(downloadUrl);
             if (!fileStream.ok) throw new Error(`HTTP ${fileStream.status}`);
 
-            const arrayBuffer = await fileStream.arrayBuffer();
-            fs.writeFileSync(tempPath, Buffer.from(arrayBuffer));
+            const writeStream = fs.createWriteStream(tempPath);
+            if (fileStream.body && typeof Readable.fromWeb === 'function' && typeof fileStream.body.getReader === 'function') {
+              await pipeline(Readable.fromWeb(fileStream.body), writeStream);
+            } else if (fileStream.body) {
+              await pipeline(fileStream.body, writeStream);
+            } else if (typeof fileStream.arrayBuffer === 'function') {
+              const arrayBuffer = await fileStream.arrayBuffer();
+              await pipeline(Readable.from(Buffer.from(arrayBuffer)), writeStream);
+            } else {
+              throw new Error('Tidak ada stream body pada response');
+            }
+
             fs.renameSync(tempPath, localPath);
             syncedFiles++;
           } catch (dlErr) {
@@ -122,12 +136,14 @@ export class OneDriveSyncService {
                 // Ignore unlink error
               }
             }
-            errors.push(`Gagal mengunduh ${item.name}: ${dlErr.message}`);
+            errors.push(`Gagal mengunduh ${safeName}: ${dlErr.message}`);
           }
         }
       }
 
-      this._pruneLocalFiles(validMediaItems);
+      if (errors.length === 0) {
+        this._pruneLocalFiles(validMediaItems);
+      }
 
       this.configManager.saveConfig({
         onedrive: {

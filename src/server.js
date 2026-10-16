@@ -1,12 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import crypto from 'crypto';
 import { defaultConfigManager } from './config/configManager.js';
 import { defaultMediaService } from './services/mediaService.js';
 import { OneDriveSyncService } from './services/onedriveSyncService.js';
 
 export function createApp(configManager, mediaService, syncService) {
   const app = express();
+  const activeSessions = new Set();
 
   app.use(cors());
   app.use(express.json());
@@ -33,7 +35,7 @@ export function createApp(configManager, mediaService, syncService) {
       return res.status(401).json({ error: 'Unauthorized: Token dibutuhkan' });
     }
     const token = authHeader.split(' ')[1];
-    if (token !== 'authenticated-admin-session') {
+    if (!activeSessions.has(token)) {
       return res.status(401).json({ error: 'Unauthorized: Token tidak valid' });
     }
     next();
@@ -51,9 +53,20 @@ export function createApp(configManager, mediaService, syncService) {
   app.post('/api/auth/login', (req, res) => {
     const { pin } = req.body || {};
     if (configManager.verifyPin(pin)) {
-      return res.json({ success: true, token: 'authenticated-admin-session' });
+      const token = crypto.randomUUID();
+      activeSessions.add(token);
+      return res.json({ success: true, token });
     }
     return res.status(401).json({ success: false, error: 'PIN salah' });
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      activeSessions.delete(token);
+    }
+    res.json({ success: true });
   });
 
   app.get('/api/admin/config', authMiddleware, (req, res) => {
